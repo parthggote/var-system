@@ -6,6 +6,7 @@ module.exports = {
   output: {
     path: path.resolve(__dirname, 'dist'),
     filename: 'bundle.js',
+    publicPath: '/'
   },
   module: {
     rules: [
@@ -21,14 +22,23 @@ module.exports = {
       },
       {
         test: /\.css$/,
-        use: ['style-loader', 'css-loader']
+        use: [
+          'style-loader',
+          {
+            loader: 'css-loader',
+            options: {
+              importLoaders: 1
+            }
+          }
+        ]
       }
     ]
   },
   plugins: [
     new HtmlWebpackPlugin({
       template: './index.html',
-      filename: 'index.html'
+      filename: 'index.html',
+      inject: true
     })
   ],
   devServer: {
@@ -37,6 +47,8 @@ module.exports = {
     },
     compress: true,
     port: 3000,
+    hot: true,
+    historyApiFallback: true,
     proxy: {
       '/api': {
         target: 'http://localhost:8000',

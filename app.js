@@ -1,3 +1,5 @@
+import './styles.css';
+
 // DOM Elements
 const darkModeToggle = document.getElementById('darkModeToggle');
 const videoUpload = document.getElementById('videoUpload');
