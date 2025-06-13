@@ -8,13 +8,15 @@ import torch
 import json
 import os
 from datetime import datetime
+import uvicorn
+from mock_var_backend import MockVARBackend
 
 app = FastAPI()
 
-# Enable CORS
+# Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],  # In production, replace with your frontend URL
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -23,6 +25,9 @@ app.add_middleware(
 # Initialize models
 classifier = None
 llm = None
+
+# Initialize the mock VAR backend
+var_backend = MockVARBackend()
 
 class Keypoint(BaseModel):
     name: str
@@ -60,58 +65,36 @@ async def startup_event():
     except Exception as e:
         print(f"Error loading models: {e}")
 
+@app.get("/")
+async def root():
+    return {"message": "VAR System API is running"}
+
 @app.post("/models/analyze")
-async def analyze_frame(frame_data: FrameData):
+async def analyze_frame(frame_data: dict):
     try:
-        # Convert keypoints to feature vector
-        features = np.array([[kp.x, kp.y, kp.score] for kp in frame_data.keypoints])
-        
-        # Perform classification
-        result = classifier(features)
-        
-        return {
-            "incident_type": result[0]["label"],
-            "confidence": result[0]["score"],
-            "timestamp": frame_data.timestamp
-        }
+        result = var_backend.analyze_frame(frame_data)
+        return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/llm/explain")
-async def explain_decision(incident_data: IncidentData):
+async def get_decision_explanation(incident_data: dict):
     try:
-        # Generate explanation using LLM
-        prompt = f"""
-        Analyze the following football incident:
-        Type: {incident_data.incident_type}
-        Confidence: {incident_data.confidence}
-        
-        Provide a detailed explanation of why this decision was made:
-        """
-        
-        explanation = llm(prompt, max_length=200, num_return_sequences=1)[0]["generated_text"]
-        
-        return {
-            "explanation": explanation,
-            "timestamp": datetime.now().isoformat()
-        }
+        explanation = var_backend.get_decision_explanation(incident_data)
+        return {"explanation": explanation}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/db/save")
-async def save_results(results: Dict[str, Any]):
+async def save_results(results: dict):
     try:
-        # Save results to file (replace with actual database in production)
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"results_{timestamp}.json"
-        
-        with open(filename, "w") as f:
-            json.dump(results, f)
-        
-        return {"status": "success", "filename": filename}
+        success = var_backend.save_results(results)
+        return {"success": success}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000) 
+    # Get port from environment variable or default to 8000
+    port = int(os.getenv("PORT", 8000))
+    # Run the application
+    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=True) 
