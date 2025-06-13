@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI VAR System</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>AI VAR System</h1>
+            <div class="theme-toggle">
+                <i class="fas fa-moon"></i>
+                <label class="switch">
+                    <input type="checkbox" id="darkModeToggle">
+                    <span class="slider round"></span>
+                </label>
+                <i class="fas fa-sun"></i>
+            </div>
+        </header>
+
+        <main>
+            <div class="main-grid">
+                <!-- Video Analysis Section -->
+                <section class="video-analysis card">
+                    <div class="section-header">
+                        <h2>Video Analysis</h2>
+                        <div class="mode-toggles">
+                            <label class="toggle-label">
+                                <input type="checkbox" id="offsideToggle">
+                                <span>Offside</span>
+                            </label>
+                            <label class="toggle-label">
+                                <input type="checkbox" id="goalLineToggle">
+                                <span>Goal Line</span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="video-container">
+                        <div class="upload-container">
+                            <label for="videoUpload" class="upload-btn">
+                                <i class="fas fa-upload"></i> Upload Video
+                            </label>
+                            <input type="file" id="videoUpload" accept="video/*" hidden>
+                        </div>
+                        <video id="inputVideo" controls hidden></video>
+                        <canvas id="outputCanvas"></canvas>
+                        <div class="pose-status hidden" id="poseStatus">
+                            <div class="status-badge">
+                                <span id="statusText">Analyzing...</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="video-controls">
+                        <div class="manual-selection-controls hidden" id="manualSelectionControls">
+                            <button id="selectAttackerBtn" class="btn primary-btn">Attacker</button>
+                            <button id="selectDefenderBtn" class="btn primary-btn">Defender</button>
+                            <button id="selectBallBtn" class="btn primary-btn">Ball</button>
+                            <span id="selectionStatus"></span>
+                        </div>
+                        <div class="frame-controls">
+                            <button id="prevFrameBtn" class="btn icon-btn"><i class="fas fa-step-backward"></i></button>
+                            <button id="analyzeBtn" class="btn primary-btn">
+                                <i class="fas fa-play"></i> Start
+                            </button>
+                            <button id="stopBtn" class="btn danger-btn">
+                                <i class="fas fa-stop"></i> Stop
+                            </button>
+                            <button id="nextFrameBtn" class="btn icon-btn"><i class="fas fa-step-forward"></i></button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Decision Panel -->
+                <section class="decision-panel card">
+                    <div class="section-header">
+                        <h2>AI Decision</h2>
+                        <button id="exportReportBtn" class="btn icon-btn">
+                            <i class="fas fa-file-export"></i>
+                        </button>
+                    </div>
+                    
+                    <div class="decision-content">
+                        <div class="confidence-display">
+                            <div class="confidence-ring">
+                                <svg viewBox="0 0 100 100">
+                                    <circle cx="50" cy="50" r="45" fill="transparent" stroke="#ddd" stroke-width="8"/>
+                                    <circle id="confidence-circle" cx="50" cy="50" r="45" fill="transparent" stroke="#4CAF50" stroke-width="8" stroke-dasharray="282.7" stroke-dashoffset="282.7" transform="rotate(-90 50 50)"/>
+                                </svg>
+                                <div class="confidence-percentage" id="confidencePercentage">0%</div>
+                            </div>
+                            <div class="decision-badge" id="decisionBadge">
+                                <i class="fas fa-question-circle"></i>
+                                <span>Awaiting Decision</span>
+                            </div>
+                        </div>
+
+                        <div class="severity-selector">
+                            <label>Simulate Decision:</label>
+                            <select id="severitySelect">
+                                <option value="">Select severity</option>
+                                <option value="minor">Minor (No action)</option>
+                                <option value="moderate">Moderate (Yellow Card)</option>
+                                <option value="severe">Severe (Red Card/Penalty)</option>
+                            </select>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Communication Panel -->
+                <section class="communication-panel card">
+                    <div class="section-header">
+                        <h2>Referee Communication</h2>
+                        <button id="clearTranscriptsBtn" class="btn icon-btn">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                    
+                    <div class="transcription-container">
+                        <div class="transcription-messages" id="transcriptionMessages"></div>
+                        <div class="transcription-controls">
+                            <button id="micBtn" class="btn round-btn">
+                                <i class="fas fa-microphone"></i>
+                            </button>
+                            <span id="recordingStatus">Click to start recording</span>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- XAI Panel -->
+                <section class="xai-panel card">
+                    <div class="section-header">
+                        <h2>Decision Explanation</h2>
+                        <button id="expandXAI" class="btn icon-btn">
+                            <i class="fas fa-expand-alt"></i>
+                        </button>
+                    </div>
+                    
+                    <div class="xai-content">
+                        <div class="xai-reasoning">
+                            <ul id="reasoningList">
+                                <li>No decision yet</li>
+                            </ul>
+                        </div>
+                        <div class="factor-importance">
+                            <canvas id="factorsChart"></canvas>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+
+        <!-- XAI Modal -->
+        <div id="xaiModal" class="modal hidden">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Detailed Decision Explanation</h2>
+                    <button id="closeModal" class="btn icon-btn">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="tabs">
+                        <button class="tab-btn active" data-tab="reasoning">Reasoning</button>
+                        <button class="tab-btn" data-tab="factors">Factors</button>
+                        <button class="tab-btn" data-tab="heatmap">Heatmap</button>
+                    </div>
+                    <div class="tab-content">
+                        <div id="reasoning-tab" class="tab-pane active">
+                            <div id="detailedReasoning">
+                                <p>No decision has been made yet.</p>
+                            </div>
+                        </div>
+                        <div id="factors-tab" class="tab-pane">
+                            <canvas id="largeFactorsChart"></canvas>
+                        </div>
+                        <div id="heatmap-tab" class="tab-pane">
+                            <canvas id="movementHeatmap"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="app.js"></script>
+</body>
+</html> 
